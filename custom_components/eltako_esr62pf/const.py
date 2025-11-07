@@ -27,3 +27,8 @@ ENDPOINT_RELAY = "/api/v0/devices/{device_guid}/functions/relay"
 # Relay States
 RELAY_STATE_ON = "on"
 RELAY_STATE_OFF = "off"
+
+# Coordinator Configuration
+CONF_POLL_INTERVAL = "poll_interval"
+MIN_POLL_INTERVAL = 10  # Minimum polling interval in seconds
+DEFAULT_POLL_INTERVAL = 30  # Default polling interval in seconds (recommended 30-60)
