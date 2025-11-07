@@ -1,7 +1,6 @@
 """Config flow for Eltako ESR62PF-IP integration."""
 from __future__ import annotations
 
-import ipaddress
 import logging
 import ssl
 from typing import Any
@@ -32,29 +31,10 @@ from .exceptions import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def _validate_ipv4(value: str) -> str:
-    """Validate that the input is a valid IPv4 address.
-
-    Args:
-        value: IP address string to validate
-
-    Returns:
-        The validated IP address string
-
-    Raises:
-        vol.Invalid: If the IP address is not valid IPv4
-    """
-    try:
-        ipaddress.IPv4Address(value)
-        return value
-    except ValueError as err:
-        raise vol.Invalid("Invalid IPv4 address") from err
-
-
 # Schema for user input
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_IP_ADDRESS): vol.All(cv.string, _validate_ipv4),
+        vol.Required(CONF_IP_ADDRESS): cv.string,
         vol.Required(CONF_PORT, default=DEFAULT_PORT): cv.port,
         vol.Required(CONF_POP_CREDENTIAL): str,
     }
