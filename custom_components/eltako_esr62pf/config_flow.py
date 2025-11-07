@@ -54,7 +54,7 @@ def _validate_ipv4(value: str) -> str:
 # Schema for user input
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_IP_ADDRESS): _validate_ipv4,
+        vol.Required(CONF_IP_ADDRESS): vol.All(cv.string, _validate_ipv4),
         vol.Required(CONF_PORT, default=DEFAULT_PORT): cv.port,
         vol.Required(CONF_POP_CREDENTIAL): str,
     }
