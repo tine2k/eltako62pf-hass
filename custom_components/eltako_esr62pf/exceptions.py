@@ -19,3 +19,7 @@ class EltakoAPIError(EltakoError):
 
 class EltakoTimeoutError(EltakoError):
     """Exception raised when request times out."""
+
+
+class EltakoInvalidDeviceError(EltakoError):
+    """Exception raised when device GUID is invalid."""

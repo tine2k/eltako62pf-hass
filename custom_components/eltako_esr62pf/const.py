@@ -5,6 +5,7 @@ DOMAIN = "eltako_esr62pf"
 
 # API Configuration
 API_TOKEN_TTL = 900  # 15 minutes in seconds
+DEVICE_CACHE_TTL = 60  # Device list cache TTL in seconds
 DEFAULT_PORT = 443
 DEFAULT_TIMEOUT = 10  # seconds
 DEFAULT_USERNAME = "admin"  # Fixed username for Eltako devices

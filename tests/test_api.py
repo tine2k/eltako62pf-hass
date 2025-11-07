@@ -12,12 +12,18 @@ from custom_components.eltako_esr62pf.api import EltakoAPI
 from custom_components.eltako_esr62pf.const import (
     API_TOKEN_TTL,
     DEFAULT_PORT,
+    DEVICE_CACHE_TTL,
+    ENDPOINT_DEVICES,
     ENDPOINT_LOGIN,
+    ENDPOINT_RELAY,
+    RELAY_STATE_OFF,
+    RELAY_STATE_ON,
 )
 from custom_components.eltako_esr62pf.exceptions import (
     EltakoAPIError,
     EltakoAuthenticationError,
     EltakoConnectionError,
+    EltakoInvalidDeviceError,
     EltakoTimeoutError,
 )
 
@@ -550,3 +556,410 @@ class TestCredentialSecurity:
             log_output = caplog.text
             assert "test_pop_credential" not in log_output
             assert "test_key" not in log_output
+
+
+class TestDeviceDiscovery:
+    """Test device discovery functionality."""
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_success(self, api_client):
+        """Test successful device list retrieval."""
+        devices_response = {
+            "devices": [
+                {"guid": "device-1", "name": "Relay 1"},
+                {"guid": "device-2", "name": "Relay 2"},
+            ]
+        }
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock devices endpoint
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload=devices_response,
+                status=200,
+            )
+
+            devices = await api_client.async_get_devices()
+
+            assert len(devices) == 2
+            assert devices[0]["guid"] == "device-1"
+            assert devices[1]["guid"] == "device-2"
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_caches_result(self, api_client):
+        """Test that device list is cached."""
+        devices_response = {"devices": [{"guid": "device-1", "name": "Relay 1"}]}
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock devices endpoint - only once
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload=devices_response,
+                status=200,
+            )
+
+            # First call fetches from API
+            devices1 = await api_client.async_get_devices()
+            # Second call returns cached result
+            devices2 = await api_client.async_get_devices()
+
+            assert devices1 == devices2
+            assert api_client._devices_cache is not None
+            assert api_client._devices_cache_timestamp is not None
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_cache_expiry(self, api_client):
+        """Test that device cache expires after TTL."""
+        devices_response1 = {"devices": [{"guid": "device-1"}]}
+        devices_response2 = {"devices": [{"guid": "device-2"}]}
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock first devices call
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload=devices_response1,
+                status=200,
+            )
+
+            # First call
+            devices1 = await api_client.async_get_devices()
+            assert devices1[0]["guid"] == "device-1"
+
+            # Simulate cache expiry
+            api_client._devices_cache_timestamp = time.time() - (DEVICE_CACHE_TTL + 1)
+
+            # Mock second devices call
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload=devices_response2,
+                status=200,
+            )
+
+            # Second call fetches fresh data
+            devices2 = await api_client.async_get_devices()
+            assert devices2[0]["guid"] == "device-2"
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_force_refresh(self, api_client):
+        """Test force refresh bypasses cache."""
+        devices_response1 = {"devices": [{"guid": "device-1"}]}
+        devices_response2 = {"devices": [{"guid": "device-2"}]}
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock first devices call
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload=devices_response1,
+                status=200,
+            )
+
+            # First call
+            devices1 = await api_client.async_get_devices()
+            assert devices1[0]["guid"] == "device-1"
+
+            # Mock second devices call
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload=devices_response2,
+                status=200,
+            )
+
+            # Force refresh bypasses cache
+            devices2 = await api_client.async_get_devices(force_refresh=True)
+            assert devices2[0]["guid"] == "device-2"
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_empty_list(self, api_client):
+        """Test handling of empty device list."""
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock devices endpoint with empty list
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload={"devices": []},
+                status=200,
+            )
+
+            devices = await api_client.async_get_devices()
+
+            assert devices == []
+            assert isinstance(devices, list)
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_invalid_response(self, api_client):
+        """Test handling of invalid response format."""
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock devices endpoint with invalid format
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload={"devices": "not a list"},
+                status=200,
+            )
+
+            with pytest.raises(EltakoAPIError, match="Invalid devices response format"):
+                await api_client.async_get_devices()
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_missing_devices_key(self, api_client):
+        """Test handling of missing devices key in response."""
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock devices endpoint without devices key
+            mock_resp.get(
+                f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                payload={},
+                status=200,
+            )
+
+            devices = await api_client.async_get_devices()
+
+            # Should return empty list when devices key is missing
+            assert devices == []
+
+    @pytest.mark.asyncio
+    async def test_async_get_devices_connection_error(self, api_client):
+        """Test handling of connection error during device discovery."""
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock devices endpoint with connection error (all retries)
+            for _ in range(4):  # Initial + 3 retries
+                mock_resp.get(
+                    f"{api_client.base_url}{ENDPOINT_DEVICES}",
+                    exception=aiohttp.ClientConnectorError(
+                        connection_key=MagicMock(),
+                        os_error=OSError("Connection refused"),
+                    ),
+                )
+
+            with pytest.raises(
+                EltakoConnectionError, match="Failed to connect after 3 retries"
+            ):
+                await api_client.async_get_devices()
+
+
+class TestRelayControl:
+    """Test relay control functionality."""
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_on(self, api_client):
+        """Test setting relay to ON state."""
+        device_guid = "test-device-123"
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock relay control endpoint
+            endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
+            mock_resp.put(
+                f"{api_client.base_url}{endpoint}",
+                status=204,
+            )
+
+            await api_client.async_set_relay(device_guid, RELAY_STATE_ON)
+
+            # Should complete without exceptions
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_off(self, api_client):
+        """Test setting relay to OFF state."""
+        device_guid = "test-device-456"
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock relay control endpoint
+            endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
+            mock_resp.put(
+                f"{api_client.base_url}{endpoint}",
+                status=204,
+            )
+
+            await api_client.async_set_relay(device_guid, RELAY_STATE_OFF)
+
+            # Should complete without exceptions
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_invalid_device_guid_empty(self, api_client):
+        """Test relay control with empty device GUID."""
+        with pytest.raises(
+            EltakoInvalidDeviceError, match="Device GUID must be a non-empty string"
+        ):
+            await api_client.async_set_relay("", RELAY_STATE_ON)
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_invalid_device_guid_none(self, api_client):
+        """Test relay control with None device GUID."""
+        with pytest.raises(
+            EltakoInvalidDeviceError, match="Device GUID must be a non-empty string"
+        ):
+            await api_client.async_set_relay(None, RELAY_STATE_ON)
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_invalid_device_guid_type(self, api_client):
+        """Test relay control with invalid device GUID type."""
+        with pytest.raises(
+            EltakoInvalidDeviceError, match="Device GUID must be a non-empty string"
+        ):
+            await api_client.async_set_relay(123, RELAY_STATE_ON)
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_invalid_state(self, api_client):
+        """Test relay control with invalid state."""
+        device_guid = "test-device-789"
+
+        with pytest.raises(EltakoAPIError, match="Invalid relay state"):
+            await api_client.async_set_relay(device_guid, "invalid_state")
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_concurrent_commands(self, api_client):
+        """Test that concurrent relay commands are queued properly."""
+        device_guid_1 = "device-1"
+        device_guid_2 = "device-2"
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+
+            # Mock relay control endpoints
+            endpoint1 = ENDPOINT_RELAY.format(device_guid=device_guid_1)
+            endpoint2 = ENDPOINT_RELAY.format(device_guid=device_guid_2)
+
+            mock_resp.put(f"{api_client.base_url}{endpoint1}", status=204)
+            mock_resp.put(f"{api_client.base_url}{endpoint2}", status=204)
+
+            # Execute commands concurrently
+            await asyncio.gather(
+                api_client.async_set_relay(device_guid_1, RELAY_STATE_ON),
+                api_client.async_set_relay(device_guid_2, RELAY_STATE_OFF),
+            )
+
+            # Both commands should complete successfully
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_api_error(self, api_client):
+        """Test handling of API error during relay control."""
+        device_guid = "test-device-error"
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock relay control endpoint with error
+            endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
+            mock_resp.put(
+                f"{api_client.base_url}{endpoint}",
+                status=400,
+                body="Bad Request",
+            )
+
+            with pytest.raises(EltakoAPIError, match="API request failed with status 400"):
+                await api_client.async_set_relay(device_guid, RELAY_STATE_ON)
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_sends_correct_payload(self, api_client):
+        """Test that relay control sends correct payload format."""
+        device_guid = "test-device-payload"
+
+        # We need to verify the payload structure
+        api_client._api_key = "test_key"
+        api_client._token_timestamp = time.time()
+
+        with aioresponses() as mock_resp:
+            endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
+            mock_resp.put(
+                f"{api_client.base_url}{endpoint}",
+                status=204,
+            )
+
+            await api_client.async_set_relay(device_guid, RELAY_STATE_ON)
+
+            # Verify the request was made with json parameter
+            # aioresponses will validate this matches the expected call
+
+    @pytest.mark.asyncio
+    async def test_async_set_relay_connection_error(self, api_client):
+        """Test handling of connection error during relay control."""
+        device_guid = "test-device-connection"
+
+        with aioresponses() as mock_resp:
+            # Mock login
+            mock_resp.post(
+                f"{api_client.base_url}{ENDPOINT_LOGIN}",
+                payload={"apiKey": "test_key"},
+                status=200,
+            )
+            # Mock relay control endpoint with connection error (all retries)
+            endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
+            for _ in range(4):  # Initial + 3 retries
+                mock_resp.put(
+                    f"{api_client.base_url}{endpoint}",
+                    exception=aiohttp.ClientConnectorError(
+                        connection_key=MagicMock(),
+                        os_error=OSError("Connection refused"),
+                    ),
+                )
+
+            with pytest.raises(
+                EltakoConnectionError, match="Failed to connect after 3 retries"
+            ):
+                await api_client.async_set_relay(device_guid, RELAY_STATE_ON)

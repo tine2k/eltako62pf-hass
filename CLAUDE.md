@@ -24,6 +24,35 @@ These guides cover:
 
 You MUST read the overview resource to understand the complete workflow. The information is NOT summarized here.
 
+## Committing Changes After Task Completion
+
+When you complete a backlog task (marking it as "Done"):
+
+1. **ALWAYS commit the changes** using git
+2. **Include ALL changes**:
+   - Source code files
+   - Test files
+   - Backlog folder changes (task markdown files)
+   - Any other modified files
+3. **Use the standard commit workflow**:
+   - Run `git status` to see all changes
+   - Run `git diff` to review changes
+   - Add all relevant files including `backlog/` folder
+   - Create a descriptive commit message referencing the task
+   - The commit message should follow the format: "Complete task-X: [brief description]"
+4. **Do NOT push** unless explicitly requested by the user
+
+Example workflow:
+```bash
+git add .
+git commit -m "Complete task-2: Implement device discovery and relay control in API client
+
+- Add async_get_devices() with caching
+- Add async_set_relay() with validation
+- Add comprehensive test coverage
+- Update backlog task status to Done"
+```
+
 </CRITICAL_INSTRUCTION>
 
 <!-- BACKLOG.MD MCP GUIDELINES END -->

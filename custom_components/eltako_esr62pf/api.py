@@ -12,14 +12,20 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
     DEFAULT_USERNAME,
+    DEVICE_CACHE_TTL,
+    ENDPOINT_DEVICES,
     ENDPOINT_LOGIN,
+    ENDPOINT_RELAY,
     MAX_RETRIES,
+    RELAY_STATE_OFF,
+    RELAY_STATE_ON,
     RETRY_BACKOFF_BASE,
 )
 from .exceptions import (
     EltakoAPIError,
     EltakoAuthenticationError,
     EltakoConnectionError,
+    EltakoInvalidDeviceError,
     EltakoTimeoutError,
 )
 
@@ -60,6 +66,13 @@ class EltakoAPI:
         self._api_key: Optional[str] = None
         self._token_timestamp: Optional[float] = None
         self._token_lock = asyncio.Lock()
+
+        # Device caching
+        self._devices_cache: Optional[list[dict[str, Any]]] = None
+        self._devices_cache_timestamp: Optional[float] = None
+
+        # Relay control queueing
+        self._relay_lock = asyncio.Lock()
 
         # SSL context
         self._ssl_context = self._create_ssl_context()
@@ -295,6 +308,89 @@ class EltakoAPI:
         except aiohttp.ClientError as err:
             _LOGGER.error("HTTP error: %s", err)
             raise EltakoConnectionError(f"HTTP error: {err}") from err
+
+    def _is_device_cache_expired(self) -> bool:
+        """Check if the device cache is expired.
+
+        Returns:
+            True if cache is expired or not set, False otherwise
+        """
+        if self._devices_cache is None or self._devices_cache_timestamp is None:
+            return True
+
+        elapsed = time.time() - self._devices_cache_timestamp
+        return elapsed >= DEVICE_CACHE_TTL
+
+    async def async_get_devices(
+        self, force_refresh: bool = False
+    ) -> list[dict[str, Any]]:
+        """Get list of devices from the Eltako API.
+
+        Args:
+            force_refresh: Force refresh cache even if not expired
+
+        Returns:
+            List of device dictionaries containing GUIDs and metadata
+
+        Raises:
+            EltakoAuthenticationError: If authentication fails
+            EltakoConnectionError: If connection fails
+            EltakoAPIError: If API returns an error
+            EltakoTimeoutError: If request times out
+        """
+        # Return cached devices if available and not expired
+        if not force_refresh and not self._is_device_cache_expired():
+            _LOGGER.debug("Returning cached device list")
+            return self._devices_cache
+
+        _LOGGER.debug("Fetching device list from API")
+        response = await self._make_request("GET", ENDPOINT_DEVICES)
+
+        # Extract devices from response
+        devices = response.get("devices", [])
+        if not isinstance(devices, list):
+            _LOGGER.error("Invalid devices response format: expected list")
+            raise EltakoAPIError("Invalid devices response format")
+
+        # Cache the devices with timestamp
+        self._devices_cache = devices
+        self._devices_cache_timestamp = time.time()
+
+        _LOGGER.debug("Successfully fetched and cached %d devices", len(devices))
+        return devices
+
+    async def async_set_relay(self, device_guid: str, state: str) -> None:
+        """Set relay state for a device.
+
+        Args:
+            device_guid: GUID of the device to control
+            state: Relay state ('on' or 'off')
+
+        Raises:
+            EltakoInvalidDeviceError: If device GUID is invalid
+            EltakoAuthenticationError: If authentication fails
+            EltakoConnectionError: If connection fails
+            EltakoAPIError: If API returns an error
+            EltakoTimeoutError: If request times out
+        """
+        # Validate device GUID
+        if not device_guid or not isinstance(device_guid, str):
+            raise EltakoInvalidDeviceError("Device GUID must be a non-empty string")
+
+        # Validate state
+        if state not in (RELAY_STATE_ON, RELAY_STATE_OFF):
+            raise EltakoAPIError(
+                f"Invalid relay state: {state}. Must be '{RELAY_STATE_ON}' or '{RELAY_STATE_OFF}'"
+            )
+
+        # Queue relay commands to prevent race conditions
+        async with self._relay_lock:
+            endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
+            payload = {"value": state}
+
+            _LOGGER.debug("Setting relay %s to %s", device_guid, state)
+            await self._make_request("PUT", endpoint, json=payload)
+            _LOGGER.debug("Successfully set relay %s to %s", device_guid, state)
 
     async def async_close(self) -> None:
         """Close the API client and cleanup resources."""
