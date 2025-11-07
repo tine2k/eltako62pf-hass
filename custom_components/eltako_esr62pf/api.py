@@ -141,6 +141,7 @@ class EltakoAPI:
             async with session.post(
                 url,
                 json=payload,
+                headers={"Content-Type": "application/json"},
                 ssl=self._ssl_context,
             ) as response:
                 if response.status == 401:
@@ -225,6 +226,10 @@ class EltakoAPI:
         url = f"{self.base_url}{endpoint}"
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = self._api_key
+
+        # Set Content-Type for JSON requests
+        if "json" in kwargs:
+            headers.setdefault("Content-Type", "application/json")
 
         try:
             session = await self._get_session()
