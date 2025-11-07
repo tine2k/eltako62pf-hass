@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Eltako ESR62PF-IP",
+        "description": "Enter the connection details for your Eltako ESR62PF-IP device.",
+        "data": {
+          "ip_address": "IP Address",
+          "port": "Port",
+          "pop_credential": "PoP Credential"
+        },
+        "data_description": {
+          "ip_address": "The IPv4 address of your Eltako device",
+          "port": "HTTPS port (default: 443)",
+          "pop_credential": "Proof of Possession credential for authentication"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid PoP credential. Please check your credential and try again.",
+      "cannot_connect": "Cannot connect to the device. Please check the IP address and ensure the device is reachable on your network.",
+      "timeout_connect": "Connection timed out. Please check your network connection and try again.",
+      "ssl_error": "SSL certificate error. The device may be using a self-signed certificate. This integration handles self-signed certificates automatically - please check your device connection.",
+      "unknown": "An unexpected error occurred. Please check the logs for more details."
+    },
+    "abort": {
+      "already_configured": "This device is already configured. The combination of IP address and port must be unique."
+    }
+  }
+}

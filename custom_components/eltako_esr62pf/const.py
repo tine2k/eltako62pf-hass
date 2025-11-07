@@ -3,6 +3,11 @@
 # Domain
 DOMAIN = "eltako_esr62pf"
 
+# Config Flow
+CONF_IP_ADDRESS = "ip_address"
+CONF_PORT = "port"
+CONF_POP_CREDENTIAL = "pop_credential"
+
 # API Configuration
 API_TOKEN_TTL = 900  # 15 minutes in seconds
 DEVICE_CACHE_TTL = 60  # Device list cache TTL in seconds

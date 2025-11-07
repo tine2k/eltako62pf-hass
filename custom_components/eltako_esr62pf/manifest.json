@@ -1,0 +1,11 @@
+{
+  "domain": "eltako_esr62pf",
+  "name": "Eltako ESR62PF-IP",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/tine2k/eltako62pf-hass",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": ["aiohttp>=3.9.0"],
+  "version": "1.0.0"
+}
