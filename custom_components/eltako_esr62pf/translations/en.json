@@ -26,5 +26,31 @@
     "abort": {
       "already_configured": "This device is already configured. The combination of IP address and port must be unique."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Eltako ESR62PF-IP",
+        "description": "Update the PoP credential or configure polling settings. By default, the integration uses optimistic updates for instant feedback. Enable polling if you need to periodically verify device states.",
+        "data": {
+          "pop_credential": "PoP Credential",
+          "enable_polling": "Enable Polling",
+          "poll_interval": "Polling Interval (seconds)"
+        },
+        "data_description": {
+          "pop_credential": "Update the Proof of Possession credential if changed",
+          "enable_polling": "Enable periodic polling to fetch device states from the Eltako device",
+          "poll_interval": "How often to poll for device states (minimum: 10 seconds, recommended: 30-60 seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid PoP credential. Please check your credential and try again.",
+      "cannot_connect": "Cannot connect to the device. Please check the IP address and ensure the device is reachable on your network.",
+      "timeout_connect": "Connection timed out. Please check your network connection and try again.",
+      "ssl_error": "SSL certificate error. The device may be using a self-signed certificate.",
+      "invalid_poll_interval": "Polling interval must be at least 10 seconds to avoid overloading the device.",
+      "unknown": "An unexpected error occurred. Please check the logs for more details."
+    }
   }
 }
