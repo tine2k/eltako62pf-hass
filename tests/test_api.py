@@ -566,12 +566,11 @@ class TestDeviceDiscovery:
     @pytest.mark.asyncio
     async def test_async_get_devices_success(self, api_client):
         """Test successful device list retrieval."""
-        devices_response = {
-            "devices": [
-                {"guid": "device-1", "name": "Relay 1"},
-                {"guid": "device-2", "name": "Relay 2"},
-            ]
-        }
+        # Mock response matches real API format (list with deviceGuid/displayName)
+        devices_response = [
+            {"deviceGuid": "device-1", "displayName": "Relay 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []},
+            {"deviceGuid": "device-2", "displayName": "Relay 2", "productGuid": "prod-2", "functions": [], "infos": [], "settings": []},
+        ]
 
         with aioresponses() as mock_resp:
             # Mock login
@@ -596,7 +595,8 @@ class TestDeviceDiscovery:
     @pytest.mark.asyncio
     async def test_async_get_devices_caches_result(self, api_client):
         """Test that device list is cached."""
-        devices_response = {"devices": [{"guid": "device-1", "name": "Relay 1"}]}
+        # Mock response matches real API format
+        devices_response = [{"deviceGuid": "device-1", "displayName": "Relay 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []}]
 
         with aioresponses() as mock_resp:
             # Mock login
@@ -624,8 +624,9 @@ class TestDeviceDiscovery:
     @pytest.mark.asyncio
     async def test_async_get_devices_cache_expiry(self, api_client):
         """Test that device cache expires after TTL."""
-        devices_response1 = {"devices": [{"guid": "device-1"}]}
-        devices_response2 = {"devices": [{"guid": "device-2"}]}
+        # Mock responses match real API format
+        devices_response1 = [{"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []}]
+        devices_response2 = [{"deviceGuid": "device-2", "displayName": "Device 2", "productGuid": "prod-2", "functions": [], "infos": [], "settings": []}]
 
         with aioresponses() as mock_resp:
             # Mock login
@@ -662,8 +663,9 @@ class TestDeviceDiscovery:
     @pytest.mark.asyncio
     async def test_async_get_devices_force_refresh(self, api_client):
         """Test force refresh bypasses cache."""
-        devices_response1 = {"devices": [{"guid": "device-1"}]}
-        devices_response2 = {"devices": [{"guid": "device-2"}]}
+        # Mock responses match real API format
+        devices_response1 = [{"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []}]
+        devices_response2 = [{"deviceGuid": "device-2", "displayName": "Device 2", "productGuid": "prod-2", "functions": [], "infos": [], "settings": []}]
 
         with aioresponses() as mock_resp:
             # Mock login

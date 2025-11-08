@@ -160,7 +160,9 @@ class EltakoAPI:
                         f"Login failed with status {response.status}: {error_text}"
                     )
 
-                data = await response.json()
+                # Eltako device returns Content-Type: text/html even for JSON responses
+                # Use content_type=None to bypass content type check
+                data = await response.json(content_type=None)
                 api_key = data.get("apiKey")
 
                 if not api_key:
@@ -255,7 +257,7 @@ class EltakoAPI:
                         method, endpoint, retry_count=retry_count + 1, **kwargs
                     )
 
-                if response.status not in (200, 201, 204):
+                if response.status not in (200, 201, 202, 204):
                     error_text = await response.text()
                     _LOGGER.error(
                         "API request failed with status %d: %s",
@@ -270,7 +272,14 @@ class EltakoAPI:
                 if response.status == 204:
                     return {}
 
-                return await response.json()
+                # Handle accepted responses (e.g., 202 Accepted for relay control)
+                if response.status == 202:
+                    # Device returns JSON response with status details
+                    return await response.json(content_type=None)
+
+                # Eltako device returns Content-Type: text/html even for JSON responses
+                # Use content_type=None to bypass content type check
+                return await response.json(content_type=None)
 
         except aiohttp.ClientConnectorError as err:
             # Implement exponential backoff retry for connection errors
@@ -359,11 +368,35 @@ class EltakoAPI:
         _LOGGER.debug("Fetching device list from API")
         response = await self._make_request("GET", ENDPOINT_DEVICES)
 
-        # Extract devices from response
-        devices = response.get("devices", [])
+        # The API returns a list directly, not a dict with "devices" key
+        if isinstance(response, list):
+            devices = response
+        else:
+            # Fallback for potential future API changes
+            devices = response.get("devices", [])
+
         if not isinstance(devices, list):
             _LOGGER.error("Invalid devices response format: expected list")
             raise EltakoAPIError("Invalid devices response format")
+
+        # Normalize device structure to match expected format
+        # API returns deviceGuid and displayName, we normalize to guid and name
+        normalized_devices = []
+        for device in devices:
+            normalized_device = {
+                "guid": device.get("deviceGuid", ""),
+                "name": device.get("displayName", "Unknown"),
+                # Keep original fields for reference
+                "deviceGuid": device.get("deviceGuid", ""),
+                "productGuid": device.get("productGuid", ""),
+                "displayName": device.get("displayName", ""),
+                "functions": device.get("functions", []),
+                "infos": device.get("infos", []),
+                "settings": device.get("settings", []),
+            }
+            normalized_devices.append(normalized_device)
+
+        devices = normalized_devices
 
         # Cache the devices with timestamp
         self._devices_cache = devices
@@ -399,7 +432,12 @@ class EltakoAPI:
         # Queue relay commands to prevent race conditions
         async with self._relay_lock:
             endpoint = ENDPOINT_RELAY.format(device_guid=device_guid)
-            payload = {"value": state}
+            # API requires all three fields: type, identifier, and value
+            payload = {
+                "type": "enumeration",
+                "identifier": "relay",
+                "value": state,
+            }
 
             _LOGGER.debug("Setting relay %s to %s", device_guid, state)
             await self._make_request("PUT", endpoint, json=payload)

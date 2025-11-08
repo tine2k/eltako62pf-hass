@@ -278,14 +278,12 @@ class TestCoordinatorErrorHandling:
                 payload={"apiKey": "test_key"},
                 status=200,
             )
-            # Succeed
+            # Succeed - use real API format
             mock_resp.get(
                 f"{coordinator.api.base_url}{ENDPOINT_DEVICES}",
-                payload={
-                    "devices": [
-                        {"guid": "device-1", "name": "Device 1"},
-                    ]
-                },
+                payload=[
+                    {"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []},
+                ],
                 status=200,
             )
 
