@@ -81,14 +81,16 @@ class TestEltakoAPIInit:
 
     def test_ssl_context_with_verification(self, api_client_with_ssl):
         """Test SSL context when verification is enabled."""
-        assert api_client_with_ssl._ssl_context is None  # Uses default
+        ssl_context = api_client_with_ssl._get_ssl_context()
+        assert ssl_context is None  # Uses default
 
     def test_ssl_context_without_verification(self, api_client):
         """Test SSL context when verification is disabled."""
-        assert api_client._ssl_context is not None
-        assert isinstance(api_client._ssl_context, ssl.SSLContext)
-        assert api_client._ssl_context.verify_mode == ssl.CERT_NONE
-        assert api_client._ssl_context.check_hostname is False
+        ssl_context = api_client._get_ssl_context()
+        assert ssl_context is not None
+        assert isinstance(ssl_context, ssl.SSLContext)
+        assert ssl_context.verify_mode == ssl.CERT_NONE
+        assert ssl_context.check_hostname is False
 
     def test_base_url(self, api_client):
         """Test base URL generation."""
@@ -167,7 +169,7 @@ class TestLogin:
                 status=401,
             )
 
-            with pytest.raises(EltakoAuthenticationError, match="Invalid PoP credential"):
+            with pytest.raises(EltakoAuthenticationError, match="Authentication failed"):
                 await api_client.async_login()
 
     @pytest.mark.asyncio
@@ -208,7 +210,7 @@ class TestLogin:
                 ),
             )
 
-            with pytest.raises(EltakoConnectionError, match="Failed to connect to device"):
+            with pytest.raises(EltakoConnectionError, match="Cannot reach Eltako device"):
                 await api_client.async_login()
 
     @pytest.mark.asyncio
@@ -220,7 +222,7 @@ class TestLogin:
                 exception=asyncio.TimeoutError(),
             )
 
-            with pytest.raises(EltakoTimeoutError, match="Login request timed out"):
+            with pytest.raises(EltakoTimeoutError, match="not responding"):
                 await api_client.async_login()
 
 
@@ -419,7 +421,7 @@ class TestMakeRequest:
                     ),
                 )
 
-            with pytest.raises(EltakoConnectionError, match="Failed to connect after 3 retries"):
+            with pytest.raises(EltakoConnectionError, match="Cannot reach Eltako device"):
                 await api_client._make_request("GET", "/test")
 
     @pytest.mark.asyncio
@@ -777,7 +779,7 @@ class TestDeviceDiscovery:
                 )
 
             with pytest.raises(
-                EltakoConnectionError, match="Failed to connect after 3 retries"
+                EltakoConnectionError, match="Cannot reach Eltako device"
             ):
                 await api_client.async_get_devices()
 
@@ -960,6 +962,6 @@ class TestRelayControl:
                 )
 
             with pytest.raises(
-                EltakoConnectionError, match="Failed to connect after 3 retries"
+                EltakoConnectionError, match="Cannot reach Eltako device"
             ):
                 await api_client.async_set_relay(device_guid, RELAY_STATE_ON)
