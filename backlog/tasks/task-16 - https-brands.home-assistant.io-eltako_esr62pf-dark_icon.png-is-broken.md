@@ -1,10 +1,10 @@
 ---
 id: task-16
 title: 'https://brands.home-assistant.io/eltako_esr62pf/dark_icon.png is broken'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2025-11-08 07:49'
-updated_date: '2025-11-08 07:57'
+updated_date: '2025-11-08 07:59'
 labels: []
 dependencies: []
 ---
@@ -21,12 +21,12 @@ While the brands.home-assistant.io URL will remain broken (this is normal for cu
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Create dark_icon.png (256x256) optimized for dark backgrounds
-- [ ] #2 Create dark_icon@2x.png (512x512) for high-DPI displays
-- [ ] #3 Icons should use transparent or dark background with lighter/contrasting symbol
-- [ ] #4 Icons should be properly compressed PNG files
-- [ ] #5 Icons should maintain the same visual style as the light theme icons
-- [ ] #6 Verify icons are served correctly from the local integration folder in Home Assistant
+- [x] #1 Create dark_icon.png (256x256) optimized for dark backgrounds
+- [x] #2 Create dark_icon@2x.png (512x512) for high-DPI displays
+- [x] #3 Icons should use transparent or dark background with lighter/contrasting symbol
+- [x] #4 Icons should be properly compressed PNG files
+- [x] #5 Icons should maintain the same visual style as the light theme icons
+- [x] #6 Verify icons are served correctly from the local integration folder in Home Assistant
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -67,3 +67,26 @@ Options for dark theme:
 - Test visibility in Home Assistant light theme (should still use light icons)
 - Verify icons are served from local integration folder
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Implementation Details
+
+### Icons Created
+- `dark_icon.png`: 256x256px, 1.4KB
+- `dark_icon@2x.png`: 512x512px, 3.1KB
+
+### Design Approach
+Used a lighter blue color (#6699FF) instead of the original dark blue (#0066CC) to ensure good visibility on dark backgrounds. The icons maintain the same symbol design (two connected module shapes) with white symbols on the lighter blue circular background.
+
+### Technical Details
+- Format: PNG with RGBA (8-bit/color)
+- Compression: Optimized with PIL/Pillow
+- Transparency: Full RGBA support
+- File sizes: Reasonable and smaller than light theme variants
+
+### Files
+- Script: [create_dark_icons.py](create_dark_icons.py)
+- Icons: [dark_icon.png](custom_components/eltako_esr62pf/dark_icon.png), [dark_icon@2x.png](custom_components/eltako_esr62pf/dark_icon@2x.png)
+<!-- SECTION:NOTES:END -->
