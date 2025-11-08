@@ -6,6 +6,7 @@ import time
 from typing import Any, Optional
 
 import aiohttp
+from homeassistant.util.ssl import client_context_no_verify
 
 from .const import (
     API_TOKEN_TTL,
@@ -74,22 +75,17 @@ class EltakoAPI:
         # Relay control queueing
         self._relay_lock = asyncio.Lock()
 
-        # SSL context
-        self._ssl_context = self._create_ssl_context()
-
-    def _create_ssl_context(self) -> Optional[ssl.SSLContext]:
-        """Create SSL context for HTTPS connections.
+    def _get_ssl_context(self) -> Optional[ssl.SSLContext]:
+        """Get SSL context for HTTPS connections.
 
         Returns:
-            SSL context or None if SSL verification is disabled
+            SSL context or None if SSL verification is enabled (uses default)
         """
         if not self._verify_ssl:
-            # Disable SSL verification for self-signed certificates
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-            return ssl_context
-        return None  # Use default SSL verification
+            # Use Home Assistant's helper to create SSL context without verification
+            # This helper handles blocking I/O operations safely
+            return client_context_no_verify()
+        return None  # Use aiohttp's default SSL verification
 
     @property
     def base_url(self) -> str:
@@ -138,11 +134,12 @@ class EltakoAPI:
 
         try:
             session = await self._get_session()
+            ssl_context = self._get_ssl_context()
             async with session.post(
                 url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                ssl=self._ssl_context,
+                ssl=ssl_context,
             ) as response:
                 if response.status == 401:
                     _LOGGER.error("Authentication failed: Invalid credentials")
@@ -233,11 +230,12 @@ class EltakoAPI:
 
         try:
             session = await self._get_session()
+            ssl_context = self._get_ssl_context()
             async with session.request(
                 method,
                 url,
                 headers=headers,
-                ssl=self._ssl_context,
+                ssl=ssl_context,
                 **kwargs,
             ) as response:
                 # Handle 401 - token expired, refresh and retry once
