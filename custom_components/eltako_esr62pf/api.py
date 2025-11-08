@@ -17,6 +17,9 @@ from .const import (
     ENDPOINT_DEVICES,
     ENDPOINT_LOGIN,
     ENDPOINT_RELAY,
+    ERROR_MSG_AUTHENTICATION,
+    ERROR_MSG_CONNECTION,
+    ERROR_MSG_TIMEOUT,
     MAX_RETRIES,
     RELAY_STATE_OFF,
     RELAY_STATE_ON,
@@ -142,8 +145,9 @@ class EltakoAPI:
                 ssl=ssl_context,
             ) as response:
                 if response.status == 401:
+                    error_msg = ERROR_MSG_AUTHENTICATION
                     _LOGGER.error("Authentication failed: Invalid credentials")
-                    raise EltakoAuthenticationError("Invalid PoP credential")
+                    raise EltakoAuthenticationError(error_msg)
 
                 if response.status != 200:
                     error_text = await response.text()
@@ -153,7 +157,7 @@ class EltakoAPI:
                         error_text,
                     )
                     raise EltakoAPIError(
-                        f"Login failed with status {response.status}"
+                        f"Login failed with status {response.status}: {error_text}"
                     )
 
                 data = await response.json()
@@ -170,14 +174,17 @@ class EltakoAPI:
                 return api_key
 
         except aiohttp.ClientConnectorError as err:
+            error_msg = ERROR_MSG_CONNECTION.format(ip=self._ip_address, port=self._port)
             _LOGGER.error("Connection error during login: %s", err)
-            raise EltakoConnectionError(f"Failed to connect to device: {err}") from err
+            raise EltakoConnectionError(error_msg) from err
         except asyncio.TimeoutError as err:
+            error_msg = ERROR_MSG_TIMEOUT
             _LOGGER.error("Timeout during login")
-            raise EltakoTimeoutError("Login request timed out") from err
+            raise EltakoTimeoutError(error_msg) from err
         except aiohttp.ClientError as err:
+            error_msg = f"HTTP error connecting to {self._ip_address}:{self._port}: {err}"
             _LOGGER.error("HTTP error during login: %s", err)
-            raise EltakoConnectionError(f"HTTP error: {err}") from err
+            raise EltakoConnectionError(error_msg) from err
 
     async def _ensure_valid_token(self) -> None:
         """Ensure we have a valid, non-expired API token.
@@ -270,7 +277,9 @@ class EltakoAPI:
             if retry_count < MAX_RETRIES:
                 wait_time = RETRY_BACKOFF_BASE ** retry_count
                 _LOGGER.warning(
-                    "Connection error (attempt %d/%d), retrying in %ds: %s",
+                    "Connection error to %s:%s (attempt %d/%d), retrying in %ds: %s",
+                    self._ip_address,
+                    self._port,
                     retry_count + 1,
                     MAX_RETRIES,
                     wait_time,
@@ -281,19 +290,20 @@ class EltakoAPI:
                     method, endpoint, retry_count=retry_count + 1, **kwargs
                 )
 
+            error_msg = ERROR_MSG_CONNECTION.format(ip=self._ip_address, port=self._port)
             _LOGGER.error(
                 "Connection error after %d retries: %s", MAX_RETRIES, err
             )
-            raise EltakoConnectionError(
-                f"Failed to connect after {MAX_RETRIES} retries"
-            ) from err
+            raise EltakoConnectionError(error_msg) from err
 
         except asyncio.TimeoutError as err:
             # Implement exponential backoff retry for timeouts
             if retry_count < MAX_RETRIES:
                 wait_time = RETRY_BACKOFF_BASE ** retry_count
                 _LOGGER.warning(
-                    "Timeout (attempt %d/%d), retrying in %ds",
+                    "Timeout to %s:%s (attempt %d/%d), retrying in %ds",
+                    self._ip_address,
+                    self._port,
                     retry_count + 1,
                     MAX_RETRIES,
                     wait_time,
@@ -303,14 +313,14 @@ class EltakoAPI:
                     method, endpoint, retry_count=retry_count + 1, **kwargs
                 )
 
+            error_msg = ERROR_MSG_TIMEOUT
             _LOGGER.error("Request timed out after %d retries", MAX_RETRIES)
-            raise EltakoTimeoutError(
-                f"Request timed out after {MAX_RETRIES} retries"
-            ) from err
+            raise EltakoTimeoutError(error_msg) from err
 
         except aiohttp.ClientError as err:
+            error_msg = f"HTTP error connecting to {self._ip_address}:{self._port}: {err}"
             _LOGGER.error("HTTP error: %s", err)
-            raise EltakoConnectionError(f"HTTP error: {err}") from err
+            raise EltakoConnectionError(error_msg) from err
 
     def _is_device_cache_expired(self) -> bool:
         """Check if the device cache is expired.

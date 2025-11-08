@@ -32,3 +32,13 @@ RELAY_STATE_OFF = "off"
 CONF_POLL_INTERVAL = "poll_interval"
 MIN_POLL_INTERVAL = 10  # Minimum polling interval in seconds
 DEFAULT_POLL_INTERVAL = 30  # Default polling interval in seconds (recommended 30-60)
+
+# Error Handling Configuration
+MAX_CONSECUTIVE_FAILURES = 3  # Number of failures before showing persistent notification
+NOTIFICATION_ID_PREFIX = "eltako_esr62pf_error"  # Prefix for persistent notification IDs
+
+# Error Messages
+ERROR_MSG_CONNECTION = "Cannot reach Eltako device at {ip}:{port}. Check network and device power."
+ERROR_MSG_AUTHENTICATION = "Authentication failed. Verify the PoP credential in integration settings."
+ERROR_MSG_TIMEOUT = "Device not responding. Check network connection and device status."
+ERROR_MSG_API_ERROR = "API error occurred: {error}. Please check device logs."

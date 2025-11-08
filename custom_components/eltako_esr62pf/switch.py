@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
@@ -53,7 +54,9 @@ async def async_setup_entry(
         _LOGGER.warning("No devices found to create switch entities")
 
 
-class EltakoSwitchEntity(CoordinatorEntity[EltakoDataUpdateCoordinator], SwitchEntity):
+class EltakoSwitchEntity(
+    CoordinatorEntity[EltakoDataUpdateCoordinator], SwitchEntity, RestoreEntity
+):
     """Representation of an Eltako relay as a switch entity."""
 
     _attr_has_entity_name = True
@@ -88,6 +91,35 @@ class EltakoSwitchEntity(CoordinatorEntity[EltakoDataUpdateCoordinator], SwitchE
             self._attr_name,
             device_guid,
         )
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added to Home Assistant.
+
+        Restore the last state from storage if available.
+        """
+        await super().async_added_to_hass()
+
+        # Restore last state if available
+        if (last_state := await self.async_get_last_state()) is not None:
+            _LOGGER.debug(
+                "Restoring previous state for %s: %s",
+                self._device_guid,
+                last_state.state,
+            )
+
+            # Restore the state in coordinator data
+            if self._device_guid in self.coordinator._devices:
+                # Convert "on"/"off" state to relay state constant
+                if last_state.state == "on":
+                    self.coordinator._devices[self._device_guid]["state"] = RELAY_STATE_ON
+                elif last_state.state == "off":
+                    self.coordinator._devices[self._device_guid]["state"] = RELAY_STATE_OFF
+
+                _LOGGER.debug(
+                    "Restored state for %s to %s",
+                    self._device_guid,
+                    last_state.state,
+                )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -155,11 +187,20 @@ class EltakoSwitchEntity(CoordinatorEntity[EltakoDataUpdateCoordinator], SwitchE
         attributes = {
             "device_guid": self._device_guid,
             "connection_status": "connected" if self.available else "disconnected",
+            "consecutive_failures": self.coordinator.consecutive_failures,
         }
 
         # Add last updated timestamp if available
         if self.coordinator.last_update_success_time:
-            attributes["last_updated"] = self.coordinator.last_update_success_time.isoformat()
+            attributes["last_success"] = self.coordinator.last_update_success_time.isoformat()
+
+        # Add last error if available
+        if self.coordinator.last_error:
+            attributes["last_error"] = self.coordinator.last_error
+
+        # Add retry information for failed states
+        if self.coordinator.consecutive_failures > 0:
+            attributes["retry_count"] = self.coordinator.consecutive_failures
 
         return attributes
 
