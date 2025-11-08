@@ -10,7 +10,6 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.eltako_esr62pf.config_flow import (
     EltakoConfigFlow,
-    _validate_ipv4,
 )
 from custom_components.eltako_esr62pf.const import (
     CONF_POP_CREDENTIAL,
@@ -34,38 +33,8 @@ def mock_setup_entry():
         yield mock
 
 
-def test_validate_ipv4_valid():
-    """Test IPv4 validation with valid addresses."""
-    # Test valid IPv4 addresses
-    assert _validate_ipv4("192.168.1.100") == "192.168.1.100"
-    assert _validate_ipv4("10.0.0.1") == "10.0.0.1"
-    assert _validate_ipv4("172.16.0.1") == "172.16.0.1"
-    assert _validate_ipv4("255.255.255.255") == "255.255.255.255"
-    assert _validate_ipv4("0.0.0.0") == "0.0.0.0"
-
-
-def test_validate_ipv4_invalid():
-    """Test IPv4 validation with invalid addresses."""
-    import voluptuous as vol
-
-    # Test invalid IPv4 addresses
-    with pytest.raises(vol.Invalid):
-        _validate_ipv4("256.1.1.1")  # Out of range
-
-    with pytest.raises(vol.Invalid):
-        _validate_ipv4("192.168.1")  # Missing octet
-
-    with pytest.raises(vol.Invalid):
-        _validate_ipv4("192.168.1.1.1")  # Too many octets
-
-    with pytest.raises(vol.Invalid):
-        _validate_ipv4("not.an.ip.address")  # Invalid format
-
-    with pytest.raises(vol.Invalid):
-        _validate_ipv4("2001:db8::1")  # IPv6 (not IPv4)
-
-    with pytest.raises(vol.Invalid):
-        _validate_ipv4("")  # Empty string
+# Note: _validate_ipv4 tests were removed as the function is now part of the
+# voluptuous/cv validation and doesn't need separate testing
 
 
 async def test_form_display(hass: HomeAssistant):

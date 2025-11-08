@@ -191,7 +191,7 @@ class EltakoSwitchEntity(
         }
 
         # Add last updated timestamp if available
-        if self.coordinator.last_update_success_time:
+        if hasattr(self.coordinator, "last_update_success_time") and self.coordinator.last_update_success_time:
             attributes["last_success"] = self.coordinator.last_update_success_time.isoformat()
 
         # Add last error if available
