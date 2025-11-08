@@ -31,6 +31,26 @@ from .exceptions import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _has_relay_function(device: dict[str, Any]) -> bool:
+    """Check if a device has relay control capability.
+
+    Args:
+        device: Device data dictionary from API
+
+    Returns:
+        True if device has a function with identifier "relay", False otherwise
+    """
+    functions = device.get("functions", [])
+    if not isinstance(functions, list):
+        return False
+
+    for function in functions:
+        if isinstance(function, dict) and function.get("identifier") == "relay":
+            return True
+
+    return False
+
+
 class EltakoDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Class to manage fetching Eltako device data.
 
@@ -198,12 +218,21 @@ class EltakoDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Fetch device list from API
             devices = await self.api.async_get_devices()
 
+            # Filter devices to only include those with relay control capability
+            relay_devices = [d for d in devices if _has_relay_function(d)]
+
+            _LOGGER.debug(
+                "Filtered devices: %d relay-capable out of %d total devices",
+                len(relay_devices),
+                len(devices),
+            )
+
             # Transform API response to coordinator data format
             # Note: The API returns device metadata but not current relay states
             # For now, we'll initialize devices and preserve existing states
             device_data: dict[str, Any] = {}
 
-            for device in devices:
+            for device in relay_devices:
                 device_guid = device.get("guid")
                 if not device_guid:
                     _LOGGER.warning("Device missing GUID, skipping: %s", device)

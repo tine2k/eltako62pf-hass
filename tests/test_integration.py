@@ -45,14 +45,17 @@ def mock_device_data():
         {
             "guid": "device-guid-1",
             "name": "Living Room Light",
+            "functions": [{"identifier": "relay", "type": "enumeration"}],
         },
         {
             "guid": "device-guid-2",
             "name": "Kitchen Switch",
+            "functions": [{"identifier": "relay", "type": "enumeration"}],
         },
         {
             "guid": "device-guid-3",
             "name": "Bedroom Fan",
+            "functions": [{"identifier": "relay", "type": "enumeration"}],
         },
     ]
 
@@ -688,3 +691,129 @@ async def test_integration_unload(hass: HomeAssistant, mock_api, mock_device_dat
 
     # Verify coordinator was cleaned up
     assert entry.entry_id not in hass.data.get(DOMAIN, {})
+
+
+# Device Filtering Tests
+
+
+async def test_devices_without_relay_function_filtered_out(hass: HomeAssistant, mock_api):
+    """Test that devices without relay functions are not added as entities."""
+    # Create device data with mixed relay and non-relay devices
+    mixed_device_data = [
+        {
+            "guid": "relay-device-1",
+            "name": "Relay Switch",
+            "functions": [{"identifier": "relay", "type": "enumeration"}],
+        },
+        {
+            "guid": "sensor-device-1",
+            "name": "Temperature Sensor",
+            "functions": [{"identifier": "temperature", "type": "value"}],
+        },
+        {
+            "guid": "relay-device-2",
+            "name": "Another Relay",
+            "functions": [{"identifier": "relay", "type": "enumeration"}],
+        },
+        {
+            "guid": "empty-functions-device",
+            "name": "Device Without Functions",
+            "functions": [],
+        },
+    ]
+
+    # Setup integration with mixed devices
+    entry = await setup_integration(hass, mock_api, mixed_device_data)
+
+    # Verify only relay devices created entities
+    entity_registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+
+    # Should only have 2 entities (the two relay devices)
+    assert len(entities) == 2
+
+    # Verify the correct devices were added
+    entity_unique_ids = [entity.unique_id for entity in entities]
+    assert "relay-device-1" in entity_unique_ids
+    assert "relay-device-2" in entity_unique_ids
+    assert "sensor-device-1" not in entity_unique_ids
+    assert "empty-functions-device" not in entity_unique_ids
+
+
+async def test_all_devices_without_relay_functions(hass: HomeAssistant, mock_api):
+    """Test handling when no devices have relay functions."""
+    # Create device data with only non-relay devices
+    non_relay_devices = [
+        {
+            "guid": "sensor-device-1",
+            "name": "Temperature Sensor",
+            "functions": [{"identifier": "temperature", "type": "value"}],
+        },
+        {
+            "guid": "sensor-device-2",
+            "name": "Humidity Sensor",
+            "functions": [{"identifier": "humidity", "type": "value"}],
+        },
+    ]
+
+    # Setup integration with non-relay devices
+    entry = await setup_integration(hass, mock_api, non_relay_devices)
+
+    # Verify no entities were created
+    entity_registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+
+    assert len(entities) == 0
+
+
+async def test_device_with_multiple_functions_including_relay(hass: HomeAssistant, mock_api):
+    """Test that devices with multiple functions including relay are added."""
+    # Create device with multiple functions including relay
+    multi_function_devices = [
+        {
+            "guid": "multi-device-1",
+            "name": "Multi-Function Device",
+            "functions": [
+                {"identifier": "temperature", "type": "value"},
+                {"identifier": "relay", "type": "enumeration"},
+                {"identifier": "power", "type": "value"},
+            ],
+        },
+    ]
+
+    # Setup integration
+    entry = await setup_integration(hass, mock_api, multi_function_devices)
+
+    # Verify entity was created
+    entity_registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+
+    assert len(entities) == 1
+    assert entities[0].unique_id == "multi-device-1"
+
+
+async def test_device_with_missing_functions_key(hass: HomeAssistant, mock_api):
+    """Test that devices missing the functions key are filtered out."""
+    # Create device data with missing functions key
+    devices_missing_functions = [
+        {
+            "guid": "relay-device-1",
+            "name": "Relay Switch",
+            "functions": [{"identifier": "relay", "type": "enumeration"}],
+        },
+        {
+            "guid": "device-no-functions-key",
+            "name": "Device Without Functions Key",
+            # No functions key at all
+        },
+    ]
+
+    # Setup integration
+    entry = await setup_integration(hass, mock_api, devices_missing_functions)
+
+    # Verify only the device with relay function was added
+    entity_registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+
+    assert len(entities) == 1
+    assert entities[0].unique_id == "relay-device-1"

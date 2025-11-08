@@ -568,8 +568,8 @@ class TestDeviceDiscovery:
         """Test successful device list retrieval."""
         # Mock response matches real API format (list with deviceGuid/displayName)
         devices_response = [
-            {"deviceGuid": "device-1", "displayName": "Relay 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []},
-            {"deviceGuid": "device-2", "displayName": "Relay 2", "productGuid": "prod-2", "functions": [], "infos": [], "settings": []},
+            {"deviceGuid": "device-1", "displayName": "Relay 1", "productGuid": "prod-1", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []},
+            {"deviceGuid": "device-2", "displayName": "Relay 2", "productGuid": "prod-2", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []},
         ]
 
         with aioresponses() as mock_resp:
@@ -596,7 +596,7 @@ class TestDeviceDiscovery:
     async def test_async_get_devices_caches_result(self, api_client):
         """Test that device list is cached."""
         # Mock response matches real API format
-        devices_response = [{"deviceGuid": "device-1", "displayName": "Relay 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []}]
+        devices_response = [{"deviceGuid": "device-1", "displayName": "Relay 1", "productGuid": "prod-1", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []}]
 
         with aioresponses() as mock_resp:
             # Mock login
@@ -625,8 +625,8 @@ class TestDeviceDiscovery:
     async def test_async_get_devices_cache_expiry(self, api_client):
         """Test that device cache expires after TTL."""
         # Mock responses match real API format
-        devices_response1 = [{"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []}]
-        devices_response2 = [{"deviceGuid": "device-2", "displayName": "Device 2", "productGuid": "prod-2", "functions": [], "infos": [], "settings": []}]
+        devices_response1 = [{"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []}]
+        devices_response2 = [{"deviceGuid": "device-2", "displayName": "Device 2", "productGuid": "prod-2", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []}]
 
         with aioresponses() as mock_resp:
             # Mock login
@@ -664,8 +664,8 @@ class TestDeviceDiscovery:
     async def test_async_get_devices_force_refresh(self, api_client):
         """Test force refresh bypasses cache."""
         # Mock responses match real API format
-        devices_response1 = [{"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [], "infos": [], "settings": []}]
-        devices_response2 = [{"deviceGuid": "device-2", "displayName": "Device 2", "productGuid": "prod-2", "functions": [], "infos": [], "settings": []}]
+        devices_response1 = [{"deviceGuid": "device-1", "displayName": "Device 1", "productGuid": "prod-1", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []}]
+        devices_response2 = [{"deviceGuid": "device-2", "displayName": "Device 2", "productGuid": "prod-2", "functions": [{"identifier": "relay", "type": "enumeration"}], "infos": [], "settings": []}]
 
         with aioresponses() as mock_resp:
             # Mock login
